@@ -2,6 +2,9 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
+
+#include <getopt.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -10,8 +13,81 @@
 #include <X11/Xresource.h>
 #include <X11/cursorfont.h>
 
+#define die(code, ...) fprintf(stderr, __VA_ARGS__); exit(code)
+
+
+char* usage =
+    "Usage: xrect [options]\n"
+    "\n"
+    "Options:\n"
+    "  -h, --help            show this help message and exit\n"
+    "  -n, --count           number of rectangles to capture\n"
+    "  -w, --border-width    set border width\n"
+    "  -b, --border-color    set border color\n"
+    "  -c, --cursor-color    set cursor color\n"
+    "\n"
+    "Color Format:\n"
+    "  rgb: 127,252,0\n"
+    "  hex: 7CFC00\n"
+    "  x11: Lawn Green\n"
+    "\n"
+    "Example:\n"
+    "  xrect -w 3 -b \"Lawn Green\" -c Red\n";
+
+typedef struct xrectopts {
+    char* border_color;
+    char* cursor_color;
+    int   border_width;
+    int   show_help;
+    int   count;
+} xrectopts;
+
+xrectopts parseopts(int argc, char** argv) {
+    char* short_opts = "hw:b:c:n";
+
+    struct option long_opts[] = {
+        {"help",  0, 0, 'h'},
+        {"count", 1, 0, 'n'},
+        {"border-width", 1, 0, 'w'},
+        {"border-color", 1, 0, 'b'},
+        {"cursor-color", 1, 0, 'c'},
+        {0, 0, 0, 0}
+    };
+
+    int idx = 0, c = 0, res = 0;
+    xrectopts opts;
+    const char* errstr;
+
+    while ((c = getopt_long(argc, argv, short_opts, long_opts, &idx))) {
+        if (c == -1)
+            break;
+
+        switch (c) {
+        case 0: break;
+        case 'h':
+            die(0, usage);
+        case 'w':
+            opts.border_width = (int) strtonum(optarg, 0, 10, &errstr);
+            if (errstr)
+                die(1, "error: invalid border width \"%s\" - %s\n", optarg, errstr);
+        case 'n':
+            opts.count = (int) strtonum(optarg, 1, 512, &errstr);
+            if (errstr)
+                die(1, "error: invalid number of times to run \"%s\" - %s\n", optarg, errstr);
+        case 'b':
+        case 'c':
+        default:
+            exit(0);
+            break;
+        }
+    }
+
+    return opts;
+}
 
 int main(int argc, char** argv) {
+    xrectopts opts = parseopts(argc, argv);
+
     Display* disp = XOpenDisplay(":0");
     Screen*  scr  = ScreenOfDisplay(disp, DefaultScreen(disp));
 

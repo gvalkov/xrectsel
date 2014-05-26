@@ -1,12 +1,12 @@
 CC     ?= gcc
-CFLAGS ?= -Wall -lX11
+CFLAGS ?= -Wall -lX11 -Wno-unused-variable
 PROG   ?= xrect
 
-$(PROG): xrect.c
-	$(CC) $(CFLAGS) -o $@ $<
+$(PROG): xrect.c strtonum.c
+	$(CC) $(CFLAGS) -o $@ $^
 
 clean:
-	rm -f $(PROG) xrect.o
+	rm -f $(PROG)
 
 run: $(PROG)
 	$(PROG)
