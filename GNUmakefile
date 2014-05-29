@@ -1,6 +1,6 @@
 CC     ?= gcc
 PROG   ?= xrect
-CFLAGS ?= -Wall -lX11 \
+CFLAGS ?= -Wall -lX11 --std=gnu99 \
           -Wno-unused-variable \
           -Wno-format-security \
           -I/usr/local/include \

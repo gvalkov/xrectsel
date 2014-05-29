@@ -2,7 +2,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
+#include <string.h>
 
 #include <getopt.h>
 
@@ -13,7 +13,8 @@
 #include <X11/Xresource.h>
 #include <X11/cursorfont.h>
 
-#define die(code, ...) fprintf(stderr, __VA_ARGS__); exit(code)
+#define die(code, ...) {fprintf(stderr, __VA_ARGS__); exit(code);}
+long long _strtonum(const char*, long long, long long, int, const char **);
 
 
 char* usage =
@@ -21,61 +22,146 @@ char* usage =
     "\n"
     "Options:\n"
     "  -h, --help            show this help message and exit\n"
-    "  -n, --count           number of rectangles to capture\n"
     "  -w, --border-width    set border width\n"
+    "  -s, --border-style    set border line style\n"
     "  -b, --border-color    set border color\n"
     "  -c, --cursor-color    set cursor color\n"
     "\n"
     "Color Format:\n"
     "  rgb: 127,252,0\n"
-    "  hex: 7CFC00\n"
+    "  hex: #7CFC00\n"
     "  x11: Lawn Green\n"
     "\n"
-    "Example:\n"
-    "  xrect -w 3 -b \"Lawn Green\" -c Red\n";
+    "Style Choices:\n"
+    "  border-style: solid dash double-dash\n"
+    "\n"
+    "Examples:\n"
+    "  xrect -w 3 -l \"Lawn Green\" -c Red\n"
+    "  xrect | read x y width height\n";
+
 
 typedef struct xrectopts {
-    char* border_color;
-    char* cursor_color;
-    int   border_width;
-    int   show_help;
-    int   count;
+    XColor border_color;
+    XColor cursor_color;
+    int border_width;
+    int border_style;
+    int show_help;
 } xrectopts;
 
+XColor getcolor_hex(const char* colorstr) {
+    if (strlen(colorstr) > 7)
+        die(1, "error: invalid hex color \"%s\"\n", colorstr);
+
+    const char* errstr;
+    long num = _strtonum(&colorstr[1], 0, 16777216, 16, &errstr);
+    if (errstr)
+        die(1, "error: invalid hex color \"%s\" - %s\n", optarg, errstr);
+
+    XColor color = {
+        .red   = ((num >> 16) & 0xFF) * 257,
+        .green = ((num >> 8) & 0xFF ) * 257,
+        .blue  = ((num) & 0xFF      ) * 257,
+        .flags = DoRed | DoGreen | DoBlue
+    };
+    return color;
+}
+
+XColor getcolor_rgb(const char* colorstr) {
+    char *tk;
+
+    short n = 0;
+    unsigned short c[3] = {0};
+    const char* errstr;
+
+    char* running = strdup(colorstr);
+    while (n < 3 && (tk = strsep(&running, ", ")) != NULL) {
+        c[n] = (short) _strtonum(tk, 0, 255, 10, &errstr);
+        if (errstr)
+            die(1, "error: invalid rgb component \"%s\" - %s\n", tk, errstr);
+        n++;
+    }
+    free(running);
+
+    XColor color = {
+        .red   = c[0] * 257,
+        .green = c[1] * 257,
+        .blue  = c[2] * 257,
+        .flags = DoRed | DoGreen | DoBlue
+    };
+    return color;
+}
+
+XColor getcolor(const char* colorstr) {
+    XColor color;
+    // hex color
+    if (colorstr[0] == '#')
+        color = getcolor_hex(colorstr);
+    else if (strchr(colorstr, ','))
+        color = getcolor_rgb(colorstr);
+    else
+        die(1, "error: unknown color \"%s\"\n", colorstr);
+
+    // printf("rgb: %d, %d, %d\n", color.red, color.green, color.blue);
+    return color;
+}
+
 xrectopts parseopts(int argc, char** argv) {
-    char* short_opts = "hw:b:c:n";
+    char* short_opts = "hw:b:c:s:";
 
     struct option long_opts[] = {
         {"help",  0, 0, 'h'},
-        {"count", 1, 0, 'n'},
         {"border-width", 1, 0, 'w'},
+        {"border-style", 1, 0, 's'},
         {"border-color", 1, 0, 'b'},
         {"cursor-color", 1, 0, 'c'},
         {0, 0, 0, 0}
     };
 
     int idx = 0, c = 0, res = 0;
-    xrectopts opts;
     const char* errstr;
+
+    // defaults
+    xrectopts opts = {
+        .border_style = LineOnOffDash,
+        .border_width = 1,
+        .border_color   = {.red = 65535, .green = 65535, .blue = 65535,
+                         .flags = DoRed | DoGreen | DoBlue},
+        .cursor_color = {.red = 65535, .green = 65535, .blue = 65535,
+                         .flags = DoRed | DoGreen | DoBlue}
+    };
 
     while ((c = getopt_long(argc, argv, short_opts, long_opts, &idx))) {
         if (c == -1)
             break;
 
         switch (c) {
-        case 0: break;
+        case 0:
+            break;
         case 'h':
             die(0, usage);
+            break;
         case 'w':
-            opts.border_width = (int) strtonum(optarg, 0, 10, &errstr);
+            opts.border_width = (int) _strtonum(optarg, 0, 10, 10, &errstr);
             if (errstr)
                 die(1, "error: invalid border width \"%s\" - %s\n", optarg, errstr);
-        case 'n':
-            opts.count = (int) strtonum(optarg, 1, 512, &errstr);
-            if (errstr)
-                die(1, "error: invalid number of times to run \"%s\" - %s\n", optarg, errstr);
+            break;
+        case 's':
+            if (strcmp(optarg, "solid") == 0)
+                opts.border_style = LineSolid;
+            else if (strcmp(optarg, "dash") == 0)
+                opts.border_style = LineOnOffDash;
+            else if (strcmp(optarg, "double-dash") == 0)
+                opts.border_style = LineDoubleDash;
+            else
+                die(1, "error: invalid line style \"%s\" - must be one of solid"
+                       ", dash or double-dash\n", optarg);
+            break;
         case 'b':
+            opts.border_color = getcolor(optarg);
+            break;
         case 'c':
+            opts.cursor_color = getcolor(optarg);
+            break;
         default:
             exit(0);
             break;
@@ -117,10 +203,15 @@ int main(int argc, char** argv) {
     gcval.plane_mask = gcval.background ^ gcval.foreground;
     gcval.subwindow_mode = IncludeInferiors;
 
-    GC gc = XCreateGC(
-        disp, root,
-        GCFunction|GCForeground|GCBackground|GCSubwindowMode,
-        &gcval);
+    GC gc = XCreateGC(disp, root,
+                      GCFunction|GCForeground|GCBackground|GCSubwindowMode,
+                      &gcval);
+
+    XAllocColor(disp, cm, &opts.border_color);
+    XAllocColor(disp, cm, &opts.cursor_color);
+
+    XSetForeground(disp, gc, opts.border_color.pixel);
+    XSetLineAttributes(disp, gc, opts.border_width, opts.border_style, CapButt, JoinMiter);
 
     ret = XGrabPointer(
         disp, root, False,
