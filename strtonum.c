@@ -28,7 +28,7 @@
 #define TOOLARGE 	3
 
 long long
-strtonum(const char *numstr, long long minval, long long maxval,
+_strtonum(const char *numstr, long long minval, long long maxval, int base,
     const char **errstrp)
 {
 	long long ll = 0;
@@ -49,7 +49,7 @@ strtonum(const char *numstr, long long minval, long long maxval,
 	if (minval > maxval)
 		error = INVALID;
 	else {
-		ll = strtoll(numstr, &ep, 10);
+		ll = strtoll(numstr, &ep, base);
 		if (errno == EINVAL || numstr == ep || *ep != '\0')
 			error = INVALID;
 		else if ((ll == LLONG_MIN && errno == ERANGE) || ll < minval)
