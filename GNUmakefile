@@ -1,19 +1,16 @@
 CC     ?= gcc
-PROG   ?= xrect
+PROG   ?= xrectsel
 CFLAGS ?= -Wall -lX11 --std=gnu99 \
           -Wno-unused-variable \
           -Wno-format-security \
           -I/usr/local/include \
           -L/usr/local/lib
 
-$(PROG): xrect.c strtonum.c
+$(PROG): xrectsel.c strtonum.c
 	$(CC) -g $(CFLAGS) $^ -o $@
 
 clean:
 	rm -f $(PROG)
-
-run: $(PROG)
-	$(PROG)
 
 all: $(PROG)
 

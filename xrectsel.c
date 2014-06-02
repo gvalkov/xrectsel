@@ -18,7 +18,7 @@ long long _strtonum(const char*, long long, long long, int, const char **);
 
 
 char* usage =
-    "Usage: xrect [options]\n"
+    "Usage: xrectsel [options]\n"
     "\n"
     "Options:\n"
     "  -h, --help            show this help message and exit\n"
@@ -36,8 +36,8 @@ char* usage =
     "  border-style: solid dash double-dash\n"
     "\n"
     "Examples:\n"
-    "  xrect -w 3 -l \"Lawn Green\" -c Red\n"
-    "  xrect | read x y width height\n";
+    "  xrectsel -w 3 -l \"Lawn Green\" -c Red\n"
+    "  xrectsel | read x y width height\n";
 
 
 typedef struct xrectopts {
