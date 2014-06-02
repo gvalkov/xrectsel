@@ -1,7 +1,6 @@
 CC     ?= gcc
 PROG   ?= xrectsel
 CFLAGS ?= -Wall -lX11 --std=gnu99 \
-          -Wno-unused-variable \
           -Wno-format-security \
           -I/usr/local/include \
           -L/usr/local/lib

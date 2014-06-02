@@ -13,7 +13,7 @@
 #include <X11/Xresource.h>
 #include <X11/cursorfont.h>
 
-#define die(code, ...) {fprintf(stderr, __VA_ARGS__); exit(code);}
+#define die(code, ...) do {fprintf(stderr, __VA_ARGS__); exit(code); } while (0)
 long long _strtonum(const char*, long long, long long, int, const char **);
 
 
@@ -117,7 +117,7 @@ xrectopts parseopts(int argc, char** argv) {
         {0, 0, 0, 0}
     };
 
-    int idx = 0, c = 0, res = 0;
+    int idx = 0, c = 0;
     const char* errstr;
 
     // defaults
@@ -177,17 +177,16 @@ int main(int argc, char** argv) {
     Display* disp = XOpenDisplay(":0");
     Screen*  scr  = ScreenOfDisplay(disp, DefaultScreen(disp));
 
-    int depth   = DefaultDepth(disp, XScreenNumberOfScreen(scr));
+    // int depth   = DefaultDepth(disp, XScreenNumberOfScreen(scr));
+    // Visual* vis = DefaultVisual(disp, XScreenNumberOfScreen(scr));
     Colormap cm = DefaultColormap(disp, XScreenNumberOfScreen(scr));
-    Visual* vis = DefaultVisual(disp, XScreenNumberOfScreen(scr));
     Window root = RootWindow(disp, XScreenNumberOfScreen(scr));
-
-    int count = 0, done = 0, ret = 0;
 
     int xfd = ConnectionNumber(disp);
     int fdsize = xfd + 1;
 
-    int rx = 0, ry = 0, rw = 0, rh = 0, btn_pressed = 0;
+    int count = 0, done = 0, ret = 0;
+    int rx = 0, ry = 0, btn_pressed = 0;
     int rect_x = 0, rect_y = 0, rect_w = 0, rect_h = 0;
 
     Cursor cursor    = XCreateFontCursor(disp, XC_crosshair);
@@ -305,6 +304,15 @@ int main(int argc, char** argv) {
             && ((errno == ENOMEM) || (errno == EINVAL) || (errno == EBADF)))
             fprintf(stderr, "Connection to X display lost");
     }
+
+    Window root_win;
+    unsigned int root_w = 0, root_h = 0, root_b, root_d;
+    int root_x = 0, root_y = 0;
+    if (XGetGeometry(disp, root, &root_win, &root_x, &root_y, &root_w, &root_h, &root_b, &root_d) == False)
+        die(1, "error: failed to get root window geometry\n");
+
+    unsigned int lx = root_w - rect_x - rect_w; // offset from right of screen
+    unsigned int ly = root_h - rect_y - rect_y; // offset from bottom of screen
 
     if (rect_w) {
         printf("%d %d %d %d\n", rect_x, rect_y, rect_w, rect_h);
