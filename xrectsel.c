@@ -154,11 +154,11 @@ xrectopts parseopts(int argc, char** argv) {
                 die(1, "error: invalid border width \"%s\" - %s\n", optarg, errstr);
             break;
         case 's':
-            if (strcmp(optarg, "solid") == 0)
+            if (strncmp(optarg, "solid", 6) == 0)
                 opts.border_style = LineSolid;
-            else if (strcmp(optarg, "dash") == 0)
+            else if (strncmp(optarg, "dash", 4) == 0)
                 opts.border_style = LineOnOffDash;
-            else if (strcmp(optarg, "double-dash") == 0)
+            else if (strncmp(optarg, "double-dash", 10) == 0)
                 opts.border_style = LineDoubleDash;
             else
                 die(1, "error: invalid line style \"%s\" - must be one of solid"
@@ -206,13 +206,10 @@ void print_result(const char* fmt, int x, int y, int w, int h,
 int main(int argc, char** argv) {
     xrectopts opts = parseopts(argc, argv);
 
-    Display* disp = XOpenDisplay(":0");
+    Display* disp = XOpenDisplay(NULL);
     Screen*  scr  = ScreenOfDisplay(disp, DefaultScreen(disp));
-
-    // int depth   = DefaultDepth(disp, XScreenNumberOfScreen(scr));
-    // Visual* vis = DefaultVisual(disp, XScreenNumberOfScreen(scr));
-    Colormap cm = DefaultColormap(disp, XScreenNumberOfScreen(scr));
-    Window root = RootWindow(disp, XScreenNumberOfScreen(scr));
+    Colormap cm   = DefaultColormap(disp, XScreenNumberOfScreen(scr));
+    Window root   = RootWindow(disp, XScreenNumberOfScreen(scr));
 
     int xfd = ConnectionNumber(disp);
     int fdsize = xfd + 1;
@@ -250,17 +247,15 @@ int main(int argc, char** argv) {
         GrabModeAsync, GrabModeAsync, root, cursor, CurrentTime);
 
     if (ret != GrabSuccess)
-        fprintf(stderr, "couldn't grab pointer:");
+        die(1, "error: couldn't grab pointer\n");
 
-    ret = XGrabKeyboard(
-        disp, root, False, GrabModeAsync, GrabModeAsync,
-        CurrentTime);
-
+    ret = XGrabKeyboard(disp, root, False, GrabModeAsync, GrabModeAsync, CurrentTime);
     if (ret != GrabSuccess)
-        fprintf(stderr, "couldn't grab keyboard:");
+        die(1, "error: couldn't grab keyboard\n");
 
     XEvent ev;
     fd_set fdset;
+    int grabmask = ButtonMotionMask | ButtonReleaseMask;
     while (1) {
         while (!done && XPending(disp)) {
             XNextEvent(disp, &ev);
@@ -279,17 +274,13 @@ int main(int argc, char** argv) {
 
                     // Change the cursor to show we're selecting a region
                     if (rect_w < 0 && rect_h < 0)
-                        XChangeActivePointerGrab(disp, ButtonMotionMask | ButtonReleaseMask,
-                                                 cursor_nw, CurrentTime);
+                        XChangeActivePointerGrab(disp, grabmask, cursor_nw, CurrentTime);
                     else if (rect_w < 0 && rect_h > 0)
-                        XChangeActivePointerGrab(disp, ButtonMotionMask | ButtonReleaseMask,
-                                                 cursor_sw, CurrentTime);
+                        XChangeActivePointerGrab(disp, grabmask, cursor_sw, CurrentTime);
                     else if (rect_w > 0 && rect_h < 0)
-                        XChangeActivePointerGrab(disp, ButtonMotionMask | ButtonReleaseMask,
-                                                 cursor_ne, CurrentTime);
+                        XChangeActivePointerGrab(disp, grabmask, cursor_ne, CurrentTime);
                     else if (rect_w > 0 && rect_h > 0)
-                        XChangeActivePointerGrab(disp, ButtonMotionMask | ButtonReleaseMask,
-                                                 cursor_se, CurrentTime);
+                        XChangeActivePointerGrab(disp, grabmask, cursor_se, CurrentTime);
 
                     if (rect_w < 0) {
                         rect_x += rect_w;
@@ -314,7 +305,7 @@ int main(int argc, char** argv) {
                 ry = ev.xbutton.y;
                 break;
             case KeyPress:
-                fprintf(stderr, "Key was pressed, aborting selection\n");
+                fprintf(stderr, "key pressed, aborting selection\n");
                 done = 2;
                 break;
             case KeyRelease:
@@ -327,20 +318,22 @@ int main(int argc, char** argv) {
         if (done)
             break;
 
-        // now block some
+        // now block some (but why?)
         FD_ZERO(&fdset);
         FD_SET(xfd, &fdset);
         errno = 0;
         count = select(fdsize, &fdset, NULL, NULL, NULL);
-        if ((count < 0)
-            && ((errno == ENOMEM) || (errno == EINVAL) || (errno == EBADF)))
-            fprintf(stderr, "Connection to X display lost");
+        if ((count < 0) && ((errno == ENOMEM) || (errno == EINVAL) || (errno == EBADF)))
+            fprintf(stderr, "connection to X display lost\n");
     }
 
     Window root_win;
     unsigned int root_w = 0, root_h = 0, root_b, root_d;
     int root_x = 0, root_y = 0;
-    if (XGetGeometry(disp, root, &root_win, &root_x, &root_y, &root_w, &root_h, &root_b, &root_d) == False)
+
+    ret = XGetGeometry(disp, root, &root_win, &root_x, &root_y,
+                       &root_w, &root_h, &root_b, &root_d);
+    if (ret == False)
         die(1, "error: failed to get root window geometry\n");
 
     unsigned int lx = root_w - rect_x - rect_w; // offset from right of screen
@@ -358,6 +351,7 @@ int main(int argc, char** argv) {
     XFreeCursor(disp, cursor);
     XFreeGC(disp, gc);
     XSync(disp, True);
+    XCloseDisplay(disp);
 
     return 0;
 }
