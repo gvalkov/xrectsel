@@ -17,7 +17,7 @@
 long long _strtonum(const char*, long long, long long, int, const char **);
 
 char* usage =
-    "Usage: xrectsel [-hfwsbc]\n"
+    "Usage: xrectsel [-hfwsb]\n"
     "\n"
     "Options:\n"
     "  -h, --help           show this help message and exit\n"
@@ -25,7 +25,6 @@ char* usage =
     "  -w, --border-width   set border width (default: 1)\n"
     "  -s, --border-style   set border line style (default: solid)\n"
     "  -b, --border-color   set border color (default: white)\n"
-    "  -c, --cursor-color   set cursor color (default: white)\n"
     "\n"
     "Color Format:\n"
     "  hex: #7CFC00\n"
@@ -41,13 +40,12 @@ char* usage =
     "  %%w %%h: selection width/height\n"
     "\n"
     "Examples:\n"
-    "  xrectsel -w 3 -l \"Lawn Green\" -c Red\n"
+    "  xrectsel -w 3 -b \"Lawn Green\"\n"
     "  xrectsel -f \"%%wx%%h+%%x+%%y\\n\"\n"
     "  xrectsel | read x y width height\n";
 
 typedef struct xrectopts {
     XColor border_color;
-    XColor cursor_color;
     int border_width;
     int border_style;
     int show_help;
@@ -112,7 +110,7 @@ XColor getcolor(const char* colorstr) {
 }
 
 xrectopts parseopts(int argc, char** argv) {
-    char* short_opts = "hw:b:c:s:f:";
+    char* short_opts = "hw:b:s:f:";
 
     struct option long_opts[] = {
         {"help",   0, 0, 'h'},
@@ -120,7 +118,6 @@ xrectopts parseopts(int argc, char** argv) {
         {"border-width", 1, 0, 'w'},
         {"border-style", 1, 0, 's'},
         {"border-color", 1, 0, 'b'},
-        {"cursor-color", 1, 0, 'c'},
         {0, 0, 0, 0}
     };
 
@@ -132,8 +129,6 @@ xrectopts parseopts(int argc, char** argv) {
         .border_style = LineSolid,
         .border_width = 1,
         .border_color = {.red = 65535, .green = 65535, .blue = 65535,
-                         .flags = DoRed | DoGreen | DoBlue},
-        .cursor_color = {.red = 65535, .green = 65535, .blue = 65535,
                          .flags = DoRed | DoGreen | DoBlue},
         .format = "%x %y %w %h\n"
     };
@@ -166,9 +161,6 @@ xrectopts parseopts(int argc, char** argv) {
             break;
         case 'b':
             opts.border_color = getcolor(optarg);
-            break;
-        case 'c':
-            opts.cursor_color = getcolor(optarg);
             break;
         case 'f':
             opts.format = optarg;
@@ -236,7 +228,6 @@ int main(int argc, char** argv) {
                       &gcval);
 
     XAllocColor(disp, cm, &opts.border_color);
-    XAllocColor(disp, cm, &opts.cursor_color);
 
     XSetForeground(disp, gc, opts.border_color.pixel);
     XSetLineAttributes(disp, gc, opts.border_width, opts.border_style, CapButt, JoinMiter);
