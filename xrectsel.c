@@ -16,29 +16,34 @@
 #define die(code, ...) do {fprintf(stderr, __VA_ARGS__); exit(code); } while (0)
 long long _strtonum(const char*, long long, long long, int, const char **);
 
-
 char* usage =
-    "Usage: xrectsel [options]\n"
+    "Usage: xrectsel [-hfwsbc]\n"
     "\n"
     "Options:\n"
-    "  -h, --help            show this help message and exit\n"
-    "  -w, --border-width    set border width\n"
-    "  -s, --border-style    set border line style\n"
-    "  -b, --border-color    set border color\n"
-    "  -c, --cursor-color    set cursor color\n"
+    "  -h, --help           show this help message and exit\n"
+    "  -f, --format         output format (default: %%x %%y %%w %%h)\n"
+    "  -w, --border-width   set border width (default: 1)\n"
+    "  -s, --border-style   set border line style (default: dash)\n"
+    "  -b, --border-color   set border color (default: white)\n"
+    "  -c, --cursor-color   set cursor color (default: white)\n"
     "\n"
     "Color Format:\n"
-    "  rgb: 127,252,0\n"
     "  hex: #7CFC00\n"
+    "  rgb: 127,252,0\n"
     "  x11: Lawn Green\n"
     "\n"
-    "Style Choices:\n"
+    "Styles:\n"
     "  border-style: solid dash double-dash\n"
+    "\n"
+    "Format Placeholders:\n"
+    "  %%x %%X: offset from left/right of screen\n"
+    "  %%y %%Y: offset from top/bottom of screen\n"
+    "  %%w %%h: selection width/height\n"
     "\n"
     "Examples:\n"
     "  xrectsel -w 3 -l \"Lawn Green\" -c Red\n"
+    "  xrectsel -f \"%%wx%%h+%%x+%%y\\n\"\n"
     "  xrectsel | read x y width height\n";
-
 
 typedef struct xrectopts {
     XColor border_color;
@@ -46,6 +51,7 @@ typedef struct xrectopts {
     int border_width;
     int border_style;
     int show_help;
+    const char* format;
 } xrectopts;
 
 XColor getcolor_hex(const char* colorstr) {
@@ -106,10 +112,11 @@ XColor getcolor(const char* colorstr) {
 }
 
 xrectopts parseopts(int argc, char** argv) {
-    char* short_opts = "hw:b:c:s:";
+    char* short_opts = "hw:b:c:s:f:";
 
     struct option long_opts[] = {
-        {"help",  0, 0, 'h'},
+        {"help",   0, 0, 'h'},
+        {"format", 1, 0, 'f'},
         {"border-width", 1, 0, 'w'},
         {"border-style", 1, 0, 's'},
         {"border-color", 1, 0, 'b'},
@@ -124,10 +131,11 @@ xrectopts parseopts(int argc, char** argv) {
     xrectopts opts = {
         .border_style = LineOnOffDash,
         .border_width = 1,
-        .border_color   = {.red = 65535, .green = 65535, .blue = 65535,
+        .border_color = {.red = 65535, .green = 65535, .blue = 65535,
                          .flags = DoRed | DoGreen | DoBlue},
         .cursor_color = {.red = 65535, .green = 65535, .blue = 65535,
-                         .flags = DoRed | DoGreen | DoBlue}
+                         .flags = DoRed | DoGreen | DoBlue},
+        .format = "%x %y %w %h\n"
     };
 
     while ((c = getopt_long(argc, argv, short_opts, long_opts, &idx))) {
@@ -162,6 +170,9 @@ xrectopts parseopts(int argc, char** argv) {
         case 'c':
             opts.cursor_color = getcolor(optarg);
             break;
+        case 'f':
+            opts.format = optarg;
+            break;
         default:
             exit(0);
             break;
@@ -169,6 +180,27 @@ xrectopts parseopts(int argc, char** argv) {
     }
 
     return opts;
+}
+
+void print_result(const char* fmt, int x, int y, int w, int h,
+                  unsigned int lx, unsigned int ly) {
+    flockfile(stdout);
+    for (const char* s = fmt; *s != '\0'; ++s) {
+        if (*s == '%') {
+            switch (*++s) {
+            case '%': putchar('%'); break;
+            case 'x': printf("%d", x); break;
+            case 'y': printf("%d", y); break;
+            case 'w': printf("%d", w); break;
+            case 'h': printf("%d", h); break;
+            case 'X': printf("%u", lx); break;
+            case 'Y': printf("%u", ly); break;
+            }
+        } else {
+            putchar(*s);
+        }
+    }
+    funlockfile(stdout);
 }
 
 int main(int argc, char** argv) {
@@ -312,13 +344,14 @@ int main(int argc, char** argv) {
         die(1, "error: failed to get root window geometry\n");
 
     unsigned int lx = root_w - rect_x - rect_w; // offset from right of screen
-    unsigned int ly = root_h - rect_y - rect_y; // offset from bottom of screen
+    unsigned int ly = root_h - rect_y - rect_h; // offset from bottom of screen
 
     if (rect_w) {
-        printf("%d %d %d %d\n", rect_x, rect_y, rect_w, rect_h);
         XDrawRectangle(disp, root, gc, rect_x, rect_y, rect_w, rect_h);
         XFlush(disp);
     }
+
+    print_result(opts.format, rect_x, rect_y, rect_w, rect_h, lx, ly);
 
     XUngrabPointer(disp, CurrentTime);
     XUngrabKeyboard(disp, CurrentTime);
