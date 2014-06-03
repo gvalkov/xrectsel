@@ -95,21 +95,28 @@ XColor getcolor_rgb(const char* colorstr) {
     return color;
 }
 
-XColor getcolor(const char* colorstr) {
-    XColor color;
+XColor getcolor(Display* disp, Colormap cm, const char* colorstr) {
+    XColor color, closest;
+    Status ret;
+
     // hex color
     if (colorstr[0] == '#')
         color = getcolor_hex(colorstr);
+    // rgb color
     else if (strchr(colorstr, ','))
         color = getcolor_rgb(colorstr);
+    // possibly an X11 color
     else
-        die(1, "error: unknown color \"%s\"\n", colorstr);
+        ret = XLookupColor(disp, cm, colorstr, &color, &closest);
+
+    if (ret == False)
+       die(1, "error: unknown color \"%s\"\n", colorstr);
 
     // printf("rgb: %d, %d, %d\n", color.red, color.green, color.blue);
     return color;
 }
 
-xrectopts parseopts(int argc, char** argv) {
+xrectopts parseopts(int argc, char** argv, Display* disp, Colormap cm) {
     char* short_opts = "hw:b:s:f:";
 
     struct option long_opts[] = {
@@ -160,7 +167,7 @@ xrectopts parseopts(int argc, char** argv) {
                        ", dash or double-dash\n", optarg);
             break;
         case 'b':
-            opts.border_color = getcolor(optarg);
+            opts.border_color = getcolor(disp, cm, optarg);
             break;
         case 'f':
             opts.format = optarg;
@@ -196,12 +203,12 @@ void print_result(const char* fmt, int x, int y, int w, int h,
 }
 
 int main(int argc, char** argv) {
-    xrectopts opts = parseopts(argc, argv);
-
     Display* disp = XOpenDisplay(NULL);
     Screen*  scr  = ScreenOfDisplay(disp, DefaultScreen(disp));
     Colormap cm   = DefaultColormap(disp, XScreenNumberOfScreen(scr));
     Window root   = RootWindow(disp, XScreenNumberOfScreen(scr));
+
+    xrectopts opts = parseopts(argc, argv, disp, cm);
 
     int xfd = ConnectionNumber(disp);
     int fdsize = xfd + 1;
