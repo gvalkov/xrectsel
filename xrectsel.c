@@ -1,9 +1,13 @@
+// Author:  Georgi Valkov 
+// Version: 1.0
+// License: New BSD License
+// URL:     https://github.com/gvalkov/xrectsel
+
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
 #include <getopt.h>
 
 #include <X11/Xlib.h>
@@ -12,6 +16,7 @@
 #include <X11/Xos.h>
 #include <X11/Xresource.h>
 #include <X11/cursorfont.h>
+
 
 #define die(code, ...) do {fprintf(stderr, __VA_ARGS__); exit(code); } while (0)
 long long _strtonum(const char*, long long, long long, int, const char **);
