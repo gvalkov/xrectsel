@@ -23,7 +23,7 @@ char* usage =
     "  -h, --help           show this help message and exit\n"
     "  -f, --format         output format (default: %%x %%y %%w %%h)\n"
     "  -w, --border-width   set border width (default: 1)\n"
-    "  -s, --border-style   set border line style (default: dash)\n"
+    "  -s, --border-style   set border line style (default: solid)\n"
     "  -b, --border-color   set border color (default: white)\n"
     "  -c, --cursor-color   set cursor color (default: white)\n"
     "\n"
@@ -129,7 +129,7 @@ xrectopts parseopts(int argc, char** argv) {
 
     // defaults
     xrectopts opts = {
-        .border_style = LineOnOffDash,
+        .border_style = LineSolid,
         .border_width = 1,
         .border_color = {.red = 65535, .green = 65535, .blue = 65535,
                          .flags = DoRed | DoGreen | DoBlue},
