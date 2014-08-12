@@ -9,11 +9,12 @@ Usage
 -----
 
 ```
-Usage: xrectsel [-hfwsb]
+Usage: xrectsel [-hfwsbg]
 
 Options:
   -h, --help           show this help message and exit
   -f, --format         output format (default: %x %y %w %h)
+  -g, --grab           grab the x11 server (may prevent tearing)
   -w, --border-width   set border width (default: 1)
   -s, --border-style   set border line style (default: solid)
   -b, --border-color   set border color (default: white)

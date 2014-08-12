@@ -1,5 +1,5 @@
 // Author:  Georgi Valkov 
-// Version: 1.0
+// Version: 1.1
 // License: New BSD License
 // URL:     https://github.com/gvalkov/xrectsel
 
@@ -22,11 +22,12 @@
 long long _strtonum(const char*, long long, long long, int, const char **);
 
 char* usage =
-    "Usage: xrectsel [-hfwsb]\n"
+    "Usage: xrectsel [-hfwsbg]\n"
     "\n"
     "Options:\n"
     "  -h, --help           show this help message and exit\n"
     "  -f, --format         output format (default: %%x %%y %%w %%h)\n"
+    "  -g, --grab           grab the x11 server (may prevent tearing)\n"
     "  -w, --border-width   set border width (default: 1)\n"
     "  -s, --border-style   set border line style (default: solid)\n"
     "  -b, --border-color   set border color (default: white)\n"
@@ -54,6 +55,7 @@ typedef struct xrectopts {
     int border_width;
     int border_style;
     int show_help;
+    int grab_server;
     const char* format;
 } xrectopts;
 
@@ -122,10 +124,11 @@ XColor getcolor(Display* disp, Colormap cm, const char* colorstr) {
 }
 
 xrectopts parseopts(int argc, char** argv, Display* disp, Colormap cm) {
-    char* short_opts = "hw:b:s:f:";
+    char* short_opts = "hgw:b:s:f:";
 
     struct option long_opts[] = {
         {"help",   0, 0, 'h'},
+        {"grab",   0, 0, 'g'},
         {"format", 1, 0, 'f'},
         {"border-width", 1, 0, 'w'},
         {"border-style", 1, 0, 's'},
@@ -140,8 +143,11 @@ xrectopts parseopts(int argc, char** argv, Display* disp, Colormap cm) {
     xrectopts opts = {
         .border_style = LineSolid,
         .border_width = 1,
-        .border_color = {.red = 65535, .green = 65535, .blue = 65535,
-                         .flags = DoRed | DoGreen | DoBlue},
+        .grab_server  = 0,
+        .border_color = {
+            .red = 65535, .green = 65535, .blue = 65535,
+            .flags = DoRed | DoGreen | DoBlue
+        },
         .format = "%x %y %w %h\n"
     };
 
@@ -154,6 +160,9 @@ xrectopts parseopts(int argc, char** argv, Display* disp, Colormap cm) {
             break;
         case 'h':
             die(0, usage);
+            break;
+        case 'g':
+            opts.grab_server = 1;
             break;
         case 'w':
             opts.border_width = (int) _strtonum(optarg, 0, 10, 10, &errstr);
@@ -251,6 +260,11 @@ int main(int argc, char** argv) {
 
     if (ret != GrabSuccess)
         die(1, "error: couldn't grab pointer\n");
+
+    if (opts.grab_server) {
+        if (XGrabServer(disp) != True)
+            die(1, "error: couldn't grab server\n");
+    }
 
     ret = XGrabKeyboard(disp, root, False, GrabModeAsync, GrabModeAsync, CurrentTime);
     if (ret != GrabSuccess)
@@ -354,6 +368,8 @@ int main(int argc, char** argv) {
     XFreeCursor(disp, cursor);
     XFreeGC(disp, gc);
     XSync(disp, True);
+    if (opts.grab_server)
+        XUngrabServer(disp);
     XCloseDisplay(disp);
 
     return 0;
