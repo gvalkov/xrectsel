@@ -38,9 +38,16 @@ Examples:
   xrectsel | read x y width height
 ```
 
+Alternatives
+------------
+
+If I knew [slop][2] existed I would have never written xrectsel. It is simply
+the better tool.
+
 License
 -------
 
 Xrectsel is released under the terms of the [Revised BSD License][1].
 
 [1]: https://raw.githubusercontent.com/gvalkov/xrectsel/master/LICENSE
+[2]: https://github.com/naelstrof/slop
