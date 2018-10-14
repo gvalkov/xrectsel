@@ -31,6 +31,8 @@ char* usage =
     "  -w, --border-width   set border width (default: 1)\n"
     "  -s, --border-style   set border line style (default: solid)\n"
     "  -b, --border-color   set border color (default: white)\n"
+    "  -x, --x-incstep      set increment step for x (default: 1)\n"
+    "  -y, --y-incstep      set increment step for y (default: 1)\n"
     "\n"
     "Color Format:\n"
     "  hex: #7CFC00\n"
@@ -57,6 +59,8 @@ typedef struct xrectopts {
     int show_help;
     int grab_server;
     const char* format;
+    int x_incstep;
+    int y_incstep;
 } xrectopts;
 
 XColor getcolor_hex(const char* colorstr) {
@@ -124,7 +128,7 @@ XColor getcolor(Display* disp, Colormap cm, const char* colorstr) {
 }
 
 xrectopts parseopts(int argc, char** argv, Display* disp, Colormap cm) {
-    char* short_opts = "hgw:b:s:f:";
+    char* short_opts = "hgw:b:s:f:x:y:";
 
     struct option long_opts[] = {
         {"help",   0, 0, 'h'},
@@ -133,6 +137,8 @@ xrectopts parseopts(int argc, char** argv, Display* disp, Colormap cm) {
         {"border-width", 1, 0, 'w'},
         {"border-style", 1, 0, 's'},
         {"border-color", 1, 0, 'b'},
+        {"x-incstep",    1, 0, 'x'},
+        {"y-incstep",    1, 0, 'y'},
         {0, 0, 0, 0}
     };
 
@@ -148,7 +154,9 @@ xrectopts parseopts(int argc, char** argv, Display* disp, Colormap cm) {
             .red = 65535, .green = 65535, .blue = 65535,
             .flags = DoRed | DoGreen | DoBlue
         },
-        .format = "%x %y %w %h\n"
+        .format = "%x %y %w %h\n",
+        .x_incstep = 1,
+        .y_incstep = 1
     };
 
     while ((c = getopt_long(argc, argv, short_opts, long_opts, &idx))) {
@@ -185,6 +193,16 @@ xrectopts parseopts(int argc, char** argv, Display* disp, Colormap cm) {
             break;
         case 'f':
             opts.format = optarg;
+            break;
+        case 'x':
+            opts.x_incstep = (int) _strtonum(optarg, 0, 256, 10, &errstr);
+            if (errstr)
+                die(1, "error: invalid x increment step \"%s\" - %s\n", optarg, errstr);
+            break;
+        case 'y':
+            opts.y_incstep = (int) _strtonum(optarg, 0, 256, 10, &errstr);
+            if (errstr)
+                die(1, "error: invalid y increment step \"%s\" - %s\n", optarg, errstr);
             break;
         default:
             exit(0);
@@ -281,8 +299,7 @@ int main(int argc, char** argv) {
             case MotionNotify:
                 if (btn_pressed) {
                     // re-draw the last rect to clear it
-                    if (rect_w)
-                        XDrawRectangle(disp, root, gc, rect_x, rect_y, rect_w, rect_h);
+                    XDrawRectangle(disp, root, gc, rect_x, rect_y, rect_w, rect_h);
 
                     rect_x = rx;
                     rect_y = ry;
@@ -308,6 +325,8 @@ int main(int argc, char** argv) {
                         rect_h = 0 - rect_h;
                     }
 
+                    rect_w -= rect_w % opts.x_incstep;
+                    rect_h -= rect_h % opts.y_incstep;
                     // draw rectangle
                     XDrawRectangle(disp, root, gc, rect_x, rect_y, rect_w, rect_h);
                     XFlush(disp);
@@ -322,8 +341,10 @@ int main(int argc, char** argv) {
                 ry = ev.xbutton.y;
                 break;
             case KeyPress:
-                fprintf(stderr, "key pressed, aborting selection\n");
-                done = 2;
+                if (XLookupKeysym(&ev.xkey,0) == XK_Escape) {
+                    fprintf(stderr, "Escape key pressed, aborting selection\n");
+                    done = 2;
+                }
                 break;
             case KeyRelease:
                 /* ignore */
